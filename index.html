@@ -24,46 +24,12 @@
     提示訊息
   </div>
 
-  <!-- 管理員登入視窗 -->
-  <div id="adminModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 hidden">
-    <div class="bg-white p-6 rounded-xl shadow-xl max-w-sm w-full">
-      <h3 class="text-lg font-bold mb-4">管理員驗證</h3>
-      <p class="text-sm text-gray-500 mb-4">請輸入密碼以開啟費率表上傳功能。</p>
-      <input 
-        type="password" 
-        id="adminCode"
-        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-        placeholder="輸入密碼"
-      />
-      <div class="flex justify-end space-x-2">
-        <button id="cancelAdminBtn" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg">取消</button>
-        <button id="submitAdminBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">解鎖</button>
-      </div>
-    </div>
-  </div>
-
   <div class="max-w-5xl mx-auto space-y-6">
-    <!-- 標題與雲端狀態 -->
+    <!-- 標題與狀態 -->
     <div class="flex justify-between items-end border-b pb-4">
       <h1 class="text-2xl font-bold text-gray-900">業績與薪水計算工具</h1>
       <div class="text-sm" id="cloudStatus">
-        <span class="text-gray-400">連線中...</span>
-      </div>
-    </div>
-    
-    <!-- CSV 匯入區塊 (管理員可見) -->
-    <div id="adminSection" class="hidden bg-blue-50 p-4 rounded-xl shadow-sm border border-blue-100 flex-col sm:flex-row sm:items-center justify-between gap-4">
-      <div>
-        <h2 class="text-md font-semibold text-blue-900">👑 管理員模式：更新雲端代理費率表 (CSV)</h2>
-        <p class="text-sm text-blue-700">上傳後，所有使用此工具的人皆會同步取得最新費率。</p>
-      </div>
-      <div>
-        <input 
-          type="file" 
-          id="fileUpload"
-          accept=".csv" 
-          class="block w-full text-sm text-blue-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-white file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-        />
+        <span class="text-gray-400">正在讀取費率表...</span>
       </div>
     </div>
 
@@ -205,27 +171,10 @@
         </div>
       </div>
     </div>
-
-    <!-- 隱藏的管理員登入入口 -->
-    <div class="flex justify-end mt-4">
-      <button 
-        id="showAdminBtn"
-        class="text-xs text-gray-300 hover:text-gray-500 transition-colors"
-      >
-        管理員登入
-      </button>
-    </div>
-
   </div>
 
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-    import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-    import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
-
+  <script>
     // 系統變數
-    let user = null;
-    let isAdmin = false;
     let catalog = [];
     let records = [];
     let currentPage = 1;
@@ -241,19 +190,6 @@
       { name: '業務專員', k: 48 },
       { name: '業務代表', k: 40 },
     ];
-
-    // 初始化 Firebase (根據執行環境抓取設定)
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    
-    let db, auth;
-    try {
-      const app = initializeApp(firebaseConfig);
-      auth = getAuth(app);
-      db = getFirestore(app);
-    } catch (e) {
-      console.warn("Firebase 未能初始化，功能將以本地端模式運行", e);
-    }
 
     // DOM 元素選取
     const els = {
@@ -280,13 +216,6 @@
       pageInfoText: document.getElementById('pageInfoText'),
       
       toast: document.getElementById('toast'),
-      showAdminBtn: document.getElementById('showAdminBtn'),
-      adminModal: document.getElementById('adminModal'),
-      adminCode: document.getElementById('adminCode'),
-      cancelAdminBtn: document.getElementById('cancelAdminBtn'),
-      submitAdminBtn: document.getElementById('submitAdminBtn'),
-      adminSection: document.getElementById('adminSection'),
-      fileUpload: document.getElementById('fileUpload'),
       cloudStatus: document.getElementById('cloudStatus')
     };
 
@@ -346,7 +275,6 @@
         }
       }
       
-      // 取消自動帶入狀態
       els.agentRate.classList.add('border-gray-300');
       els.agentRate.classList.remove('border-green-300', 'bg-green-50');
       els.autoFillBadge.classList.add('hidden');
@@ -368,7 +296,6 @@
       const totalPages = Math.ceil(records.length / ITEMS_PER_PAGE) || 1;
       if (currentPage > totalPages) currentPage = totalPages;
 
-      // 總計
       const totalC = records.reduce((sum, r) => sum + r.cNumber, 0);
       const totalS = records.reduce((sum, r) => sum + r.salary, 0);
       els.totalCText.textContent = `${totalC.toFixed(2)} C`;
@@ -384,7 +311,6 @@
       els.emptyListState.classList.add('hidden');
       els.recordsContainer.classList.remove('hidden');
       
-      // 渲染列表內容
       const start = (currentPage - 1) * ITEMS_PER_PAGE;
       const currentRecords = records.slice(start, start + ITEMS_PER_PAGE);
       
@@ -415,7 +341,6 @@
         els.recordsContainer.appendChild(div);
       });
 
-      // 綁定刪除事件
       document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const id = Number(e.currentTarget.getAttribute('data-id'));
@@ -424,7 +349,6 @@
         });
       });
 
-      // 處理分頁控制顯示
       if (records.length > ITEMS_PER_PAGE) {
         els.paginationContainer.classList.remove('hidden');
         els.paginationContainer.classList.add('flex');
@@ -465,7 +389,6 @@
 
       records.push(newRecord);
       
-      // 清空部分輸入，保留職級、代理率供連續輸入
       els.productName.value = '';
       els.fee.value = '';
       els.agentRate.classList.add('border-gray-300');
@@ -492,104 +415,97 @@
       return arr;
     }
 
-    // 處理 CSV 上傳
-    function handleFileUpload(e) {
-      const file = e.target.files[0];
-      if (!file) return;
+    // 處理解析出來的文字檔
+    function processText(text) {
+      const rows = parseCSV(text);
+      if (rows.length < 2) return false;
 
-      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        showMessage('工具目前僅支援 CSV 格式。請將 Excel 另存為 CSV 檔案後再上傳。');
-        e.target.value = '';
-        return;
+      let headerRowIdx = -1, nameIdx = -1, termIdx = -1, rateIdx = -1;
+
+      for (let i = 0; i < Math.min(50, rows.length); i++) {
+        const rowText = rows[i].map(h => typeof h === 'string' ? h.replace(/\s+/g, '') : '');
+        nameIdx = rowText.findIndex(h => h.includes('險種名稱'));
+        termIdx = rowText.findIndex(h => h.includes('年期'));
+        rateIdx = rowText.findIndex(h => h.includes('佣金第1年') || h.includes('代理費') || h.includes('佣金'));
+        if (nameIdx !== -1 && rateIdx !== -1) { headerRowIdx = i; break; }
       }
 
-      const processText = async (text) => {
-        const rows = parseCSV(text);
-        if (rows.length < 2) return false;
+      if (headerRowIdx === -1) return false;
 
-        let headerRowIdx = -1, nameIdx = -1, termIdx = -1, rateIdx = -1;
+      const newCatalog = [];
+      for (let i = headerRowIdx + 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (row.length > Math.max(nameIdx, rateIdx)) {
+          const name = row[nameIdx]?.trim();
+          if (!name) continue;
 
-        for (let i = 0; i < Math.min(50, rows.length); i++) {
-          const rowText = rows[i].map(h => typeof h === 'string' ? h.replace(/\s+/g, '') : '');
-          nameIdx = rowText.findIndex(h => h.includes('險種名稱'));
-          termIdx = rowText.findIndex(h => h.includes('年期'));
-          rateIdx = rowText.findIndex(h => h.includes('佣金第1年') || h.includes('代理費') || h.includes('佣金'));
-          if (nameIdx !== -1 && rateIdx !== -1) { headerRowIdx = i; break; }
-        }
+          const termStr = termIdx !== -1 ? (row[termIdx]?.trim() || '') : '';
+          let termNum = termStr.replace(/\D/g, ''); 
+          if (termStr.includes('躉')) termNum = '1';
 
-        if (headerRowIdx === -1) return false;
+          let rateStr = row[rateIdx]?.replace(/%/g, '')?.trim();
+          const rate = parseFloat(rateStr);
 
-        const newCatalog = [];
-        for (let i = headerRowIdx + 1; i < rows.length; i++) {
-          const row = rows[i];
-          if (row.length > Math.max(nameIdx, rateIdx)) {
-            const name = row[nameIdx]?.trim();
-            if (!name) continue;
-
-            const termStr = termIdx !== -1 ? (row[termIdx]?.trim() || '') : '';
-            let termNum = termStr.replace(/\D/g, ''); 
-            if (termStr.includes('躉')) termNum = '1';
-
-            let rateStr = row[rateIdx]?.replace(/%/g, '')?.trim();
-            const rate = parseFloat(rateStr);
-
-            if (name && !isNaN(rate)) {
-              newCatalog.push({ name, term: termNum || '1', rate });
-            }
+          if (name && !isNaN(rate)) {
+            newCatalog.push({ name, term: termNum || '1', rate });
           }
         }
+      }
 
-        if (newCatalog.length > 0) {
-          if (db && auth && auth.currentUser) {
-            try {
-              const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'rateConfig', 'catalog');
-              await setDoc(docRef, { rates: JSON.stringify(newCatalog), updatedAt: Date.now() });
-              showMessage('✅ 費率表已成功上傳至雲端！所有人皆已同步。');
-            } catch (error) {
-              console.error(error);
-              showMessage('❌ 雲端上傳失敗，請稍後再試。');
-            }
-          } else {
-            // 本地模式備用
-            catalog = newCatalog;
-            updateDatalist();
-            showMessage('✅ (本地模式) 費率表載入成功。');
-          }
-          return true;
+      if (newCatalog.length > 0) {
+        catalog = newCatalog;
+        updateDatalist();
+        return true;
+      }
+      return false;
+    }
+
+    // 從 GitHub 自動讀取 data.csv
+    async function loadDataFromGitHub() {
+      try {
+        // 加上時間戳，避免瀏覽器記住舊的檔案
+        const response = await fetch('./data.csv?t=' + new Date().getTime());
+        
+        if (!response.ok) {
+          throw new Error('找不到 data.csv');
         }
-        return false;
-      };
+        
+        const buffer = await response.arrayBuffer();
+        
+        // 嘗試用 Big5 (台灣 Excel 預設) 解碼
+        let decoder = new TextDecoder('big5');
+        let text = decoder.decode(buffer);
+        
+        // 如果發現亂碼，自動切換成 UTF-8
+        if (text.includes('')) {
+            decoder = new TextDecoder('utf-8');
+            text = decoder.decode(buffer);
+        }
 
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const success = await processText(event.target.result);
-        if (!success) {
-          const readerBig5 = new FileReader();
-          readerBig5.onload = async (e2) => {
-            const successBig5 = await processText(e2.target.result);
-            if (!successBig5) showMessage('❌ 匯入失敗：找不到對應的欄位「險種名稱」或「佣金第1年」。');
-          };
-          readerBig5.readAsText(file, 'Big5');
+        const success = processText(text);
+        
+        if (success) {
+           els.cloudStatus.innerHTML = `<span class="text-green-600 font-medium">✅ 費率表已連線 (${catalog.length} 筆商品)</span>`;
+           showMessage('✅ 成功載入最新費率表！');
         } else {
-          e.target.value = ''; 
+           els.cloudStatus.innerHTML = '<span class="text-red-500">❌ 費率表格式錯誤</span>';
         }
-      };
-      reader.readAsText(file, 'utf-8');
+      } catch (error) {
+        console.warn(error);
+        els.cloudStatus.innerHTML = '<span class="text-red-400">尚未上傳 data.csv 到 GitHub</span>';
+      }
     }
 
     // 事件監聽綁定
     function attachEventListeners() {
-      // 數字輸入框攔截滾輪事件
       [els.term, els.fee, els.agentRate].forEach(input => {
         input.addEventListener('wheel', (e) => e.target.blur());
       });
 
-      // 即時計算綁定
       [els.fee, els.agentRate, els.kValue].forEach(input => {
         input.addEventListener('input', updateCalculations);
       });
 
-      // 自動帶入綁定
       [els.productName, els.term].forEach(input => {
         input.addEventListener('input', () => {
           checkAutoFill();
@@ -597,14 +513,12 @@
         });
       });
 
-      // 手動修改代理率取消帶入標記
       els.agentRate.addEventListener('input', () => {
         els.agentRate.classList.add('border-gray-300');
         els.agentRate.classList.remove('border-green-300', 'bg-green-50');
         els.autoFillBadge.classList.add('hidden');
       });
 
-      // 職級切換
       els.rank.addEventListener('change', (e) => {
         const matched = RANK_OPTIONS.find(opt => opt.name === e.target.value);
         if (matched) {
@@ -613,7 +527,6 @@
         }
       });
 
-      // 按鈕綁定
       els.addRecordBtn.addEventListener('click', handleAddRecord);
       
       els.prevPageBtn.addEventListener('click', () => {
@@ -625,68 +538,6 @@
         currentPage = Math.min(totalPages, currentPage + 1);
         renderRecords();
       });
-
-      // 管理員控制
-      els.showAdminBtn.addEventListener('click', () => els.adminModal.classList.remove('hidden'));
-      els.cancelAdminBtn.addEventListener('click', () => els.adminModal.classList.add('hidden'));
-      els.submitAdminBtn.addEventListener('click', () => {
-        if (els.adminCode.value === '19970923') {
-          isAdmin = true;
-          els.adminModal.classList.add('hidden');
-          els.adminSection.classList.remove('hidden');
-          els.adminSection.classList.add('flex');
-          showMessage('✅ 管理員模式已解鎖');
-        } else {
-          showMessage('❌ 密碼錯誤');
-        }
-        els.adminCode.value = '';
-      });
-
-      els.fileUpload.addEventListener('change', handleFileUpload);
-    }
-
-    // 初始化 Firebase Auth 與資料同步
-    function initFirebase() {
-      if (!auth || !db) {
-        els.cloudStatus.innerHTML = '<span class="text-gray-500">僅本地端運行模式</span>';
-        return;
-      }
-
-      const login = async () => {
-        try {
-          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-            await signInWithCustomToken(auth, __initial_auth_token);
-          } else {
-            await signInAnonymously(auth);
-          }
-        } catch (error) {
-          console.error("登入失敗", error);
-        }
-      };
-
-      login();
-
-      onAuthStateChanged(auth, (u) => {
-        user = u;
-        if (user) {
-          const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'rateConfig', 'catalog');
-          onSnapshot(docRef, (snap) => {
-            if (snap.exists()) {
-              try {
-                catalog = JSON.parse(snap.data().rates);
-                updateDatalist();
-                els.cloudStatus.innerHTML = `<span class="text-green-600 font-medium">✅ 雲端費率庫已連線 (${catalog.length} 筆商品)</span>`;
-              } catch (e) {
-                console.error("解析費率表失敗", e);
-              }
-            } else {
-              els.cloudStatus.innerHTML = '<span class="text-gray-400">目前雲端無費率資料，請聯絡管理員上傳</span>';
-            }
-          }, (error) => {
-            console.error("讀取雲端資料失敗", error);
-          });
-        }
-      });
     }
 
     // 啟動應用程式
@@ -695,11 +546,11 @@
       updateCalculations();
       attachEventListeners();
       renderRecords();
-      initFirebase();
+      // 網頁開啟時，自動去抓同一層目錄下的 data.csv
+      loadDataFromGitHub();
     }
 
     initApp();
-
   </script>
 </body>
 </html>
