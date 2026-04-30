@@ -436,8 +436,17 @@
       for (let i = headerRowIdx + 1; i < rows.length; i++) {
         const row = rows[i];
         if (row.length > Math.max(nameIdx, rateIdx)) {
-          const name = row[nameIdx]?.trim();
-          if (!name) continue;
+          let name = row[nameIdx];
+          
+          // 確保欄位是字串，並去除引號與前後空白
+          if (typeof name !== 'string') continue;
+          name = name.replace(/["\r\n]/g, '').trim();
+
+          // 【嚴格過濾機制】
+          // 排除名稱空白、名稱少於2個字元，或包含「備註、說明、注意、總計、資料來源、超額」等非商品字眼
+          if (!name || name.length < 2 || /備註|說明|注意|總計|資料來源|頁次|Date|超額/.test(name)) {
+            continue;
+          }
 
           const termStr = termIdx !== -1 ? (row[termIdx]?.trim() || '') : '';
           let termNum = termStr.replace(/\D/g, ''); 
@@ -446,7 +455,8 @@
           let rateStr = row[rateIdx]?.replace(/%/g, '')?.trim();
           const rate = parseFloat(rateStr);
 
-          if (name && !isNaN(rate)) {
+          // 確保費率大於 0 才加進清單
+          if (!isNaN(rate) && rate > 0) {
             newCatalog.push({ name, term: termNum || '1', rate });
           }
         }
