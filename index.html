@@ -436,6 +436,12 @@
       for (let i = headerRowIdx + 1; i < rows.length; i++) {
         const row = rows[i];
         if (row.length > Math.max(nameIdx, rateIdx)) {
+          // 檢查整列資料是否包含「超額」，若有則整列忽略
+          const fullRowString = row.join('');
+          if (fullRowString.includes('超額')) {
+            continue;
+          }
+
           let name = row[nameIdx];
           
           // 確保欄位是字串，並去除引號與前後空白
@@ -443,8 +449,8 @@
           name = name.replace(/["\r\n]/g, '').trim();
 
           // 【嚴格過濾機制】
-          // 排除名稱空白、名稱少於2個字元，或包含「備註、說明、注意、總計、資料來源、超額」等非商品字眼
-          if (!name || name.length < 2 || /備註|說明|注意|總計|資料來源|頁次|Date|超額/.test(name)) {
+          // 排除名稱空白、名稱少於2個字元，或包含「備註、說明、注意、總計、資料來源」等非商品字眼
+          if (!name || name.length < 2 || /備註|說明|注意|總計|資料來源|頁次|Date/.test(name)) {
             continue;
           }
 
